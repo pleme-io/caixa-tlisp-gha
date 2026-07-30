@@ -4,11 +4,12 @@ name: auto-release
 # `caixa` from its *.caixa.lisp manifest, and auto-release dispatches to
 # caixa-tlisp-auto-release.yml.
 #
-# This repo previously called the composites directly, because the polymorphic
-# workflow startup_failure'd with zero jobs for every caller in the org: GitHub
-# validates the whole reusable call graph before evaluating any job `if:`, so
-# `required: true` secrets in the rust/cargo/npm/python arms failed repos that
-# would never reach them. Fixed in substrate a599f11.
+# The polymorphic dispatcher could not route anything until 2026-07-29:
+# tatara-script forwards a script's GITHUB_OUTPUT keys through an explicit
+# allow-list of composite outputs, and repo-type was not on it, so
+# detect-repo-type's answer was dropped at the composite boundary and every
+# arm compared against an empty string. Fixed in pleme-io/actions 15ea377.
+# First green dispatch through this path: run on 281bb46.
 
 on:
   push:
@@ -22,7 +23,7 @@ on:
 
 jobs:
   release:
-    uses: pleme-io/substrate/.github/workflows/auto-release-min.yml@bisect-startup
+    uses: pleme-io/substrate/.github/workflows/auto-release.yml@main
     with:
       bump-type: ${{ inputs.bump-type || 'patch' }}
     secrets: inherit
