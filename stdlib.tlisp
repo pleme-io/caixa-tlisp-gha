@@ -10,47 +10,71 @@
 
 ;; ── run state ───────────────────────────────────────────────────────────
 
-(define (gha:latest-run-id repo workflow)
-  (let ((r (exec-capture "gh" "run" "list" "-R" repo "--workflow" workflow
-                          "-L" "1" "--json" "databaseId" "-q" ".[0].databaseId")))
-    (cond ((= (status-of r) 0) (string-trim (stdout-of r)))
-          (else ""))))
+(define
+  (gha:latest-run-id repo workflow)
+  (let
+    ((r
+       (exec-capture
+         "gh"
+         "run"
+         "list"
+         "-R"
+         repo
+         "--workflow"
+         workflow
+         "-L"
+         "1"
+         "--json"
+         "databaseId"
+         "-q"
+         ".[0].databaseId")))
+    (cond ((= (status-of r) 0) (string-trim (stdout-of r))) (else ""))))
 
-(define (gha:run-status repo run-id)
-  (let ((r (exec-capture "gh" "run" "view" run-id "-R" repo
-                          "--json" "status" "-q" ".status")))
-    (cond ((= (status-of r) 0) (string-trim (stdout-of r)))
-          (else ""))))
+(define
+  (gha:run-status repo run-id)
+  (let
+    ((r (exec-capture "gh" "run" "view" run-id "-R" repo "--json" "status" "-q" ".status")))
+    (cond ((= (status-of r) 0) (string-trim (stdout-of r))) (else ""))))
 
-(define (gha:run-conclusion repo run-id)
-  (let ((r (exec-capture "gh" "run" "view" run-id "-R" repo
-                          "--json" "conclusion" "-q" ".conclusion")))
-    (cond ((= (status-of r) 0) (string-trim (stdout-of r)))
-          (else ""))))
+(define
+  (gha:run-conclusion repo run-id)
+  (let
+    ((r (exec-capture "gh" "run" "view" run-id "-R" repo "--json" "conclusion" "-q" ".conclusion")))
+    (cond ((= (status-of r) 0) (string-trim (stdout-of r))) (else ""))))
 
-(define (gha:run-url repo run-id)
+(define
+  (gha:run-url repo run-id)
   (string-append "https://github.com/" repo "/actions/runs/" run-id))
 
 ;; Poll to a TERMINAL state, never a fixed sleep. A guessed delay is either a
 ;; wasted wait or a false read; self-hosted spot runners here routinely take
 ;; minutes of cold start before a job even begins.
-(define (gha:wait-run repo run-id max-polls interval-sec)
+(define
+  (gha:wait-run repo run-id max-polls interval-sec)
   (cond
     ((<= max-polls 0) "timeout")
     (else
-      (let ((st (gha:run-status repo run-id)))
+      (let
+        ((st (gha:run-status repo run-id)))
         (cond
           ((equal? st "completed") (gha:run-conclusion repo run-id))
           ((equal? st "") "unknown")
           (else
-            (begin
-              (sleep interval-sec)
-              (gha:wait-run repo run-id (- max-polls 1) interval-sec))))))))
+            (begin (sleep interval-sec) (gha:wait-run repo run-id (- max-polls 1) interval-sec))))))))
 
-(define (gha:job-lines repo run-id)
-  (let ((r (exec-capture "sh" "-c"
-             (string-append "gh run view " run-id " -R " repo
-                            " --json jobs -q '.jobs[] | \"  \\(.conclusion // .status)  \\(.name)\"'"))))
+(define
+  (gha:job-lines repo run-id)
+  (let
+    ((r
+       (exec-capture
+         "sh"
+         "-c"
+         (string-append
+           "gh run view "
+           run-id
+           " -R "
+           repo
+           " --json jobs -q '.jobs[] | \"  \\(.conclusion // .status)  \\(.name)\"'"))))
     (stdout-of r)))
 
 ;; ── dispatch ────────────────────────────────────────────────────────────
@@ -58,14 +82,18 @@
 ;; inputs is a flat list of "key=value" strings. Each becomes its own -f
 ;; argument — never a single interpolated string, so a value containing a
 ;; space or a quote cannot change the shape of the command.
-(define (gha:dispatch repo workflow ref inputs)
-  (let ((argv (append (list "gh" "workflow" "run" workflow "-R" repo "--ref" ref)
-                      (gha:input-args inputs))))
+(define
+  (gha:dispatch repo workflow ref inputs)
+  (let
+    ((argv
+       (append (list "gh" "workflow" "run" workflow "-R" repo "--ref" ref) (gha:input-args inputs))))
     (apply exec-capture argv)))
 
-(define (gha:input-args inputs)
-  (cond ((null? inputs) (list))
-        (else (append (list "-f" (car inputs)) (gha:input-args (cdr inputs))))))
+(define
+  (gha:input-args inputs)
+  (cond
+    ((null? inputs) (list))
+    (else (append (list "-f" (car inputs)) (gha:input-args (cdr inputs))))))
 
 ;; ── reusable-workflow ref repointing ────────────────────────────────────
 ;;
@@ -74,27 +102,56 @@
 ;; Qualifying a change to that workflow means temporarily moving @ref onto the
 ;; branch under test.
 
-(define (gha:uses-ref-of file target)
-  (let ((r (exec-capture "sh" "-c"
-             (string-append "grep -oE '" target "@[A-Za-z0-9._/-]+' " file
-                            " | head -1 | sed 's|.*@||'"))))
+(define
+  (gha:uses-ref-of file target)
+  (let
+    ((r
+       (exec-capture
+         "sh"
+         "-c"
+         (string-append "grep -oE '" target "@[A-Za-z0-9._/-]+' " file " | head -1 | sed 's|.*@||'"))))
     (string-trim (stdout-of r))))
 
-(define (gha:uses-repoint file target from-ref to-ref)
-  (let ((r (exec-capture "sh" "-c"
-             (string-append "grep -q '" target "@" from-ref "' " file
-                            " && sed -i.caixa-bak 's|" target "@" from-ref
-                            "|" target "@" to-ref "|g' " file))))
+(define
+  (gha:uses-repoint file target from-ref to-ref)
+  (let
+    ((r
+       (exec-capture
+         "sh"
+         "-c"
+         (string-append
+           "grep -q '"
+           target
+           "@"
+           from-ref
+           "' "
+           file
+           " && sed -i.caixa-bak 's|"
+           target
+           "@"
+           from-ref
+           "|"
+           target
+           "@"
+           to-ref
+           "|g' "
+           file))))
     (= (status-of r) 0)))
 
 ;; Restore is deliberately its own primitive, not a flag on repoint. A
 ;; half-finished qualification that leaves a caller pointed at a feature branch
 ;; is worse than never having run it, so the undo has to be callable on its own
 ;; — including from a later session that did not do the repointing.
-(define (gha:uses-restore file)
-  (let ((r (exec-capture "sh" "-c"
-             (string-append "test -f " file ".caixa-bak && mv " file ".caixa-bak " file))))
+(define
+  (gha:uses-restore file)
+  (let
+    ((r
+       (exec-capture
+         "sh"
+         "-c"
+         (string-append "test -f " file ".caixa-bak && mv " file ".caixa-bak " file))))
     (= (status-of r) 0)))
 
-(define (gha:uses-repointed? file target expected-ref)
+(define
+  (gha:uses-repointed? file target expected-ref)
   (not (equal? (gha:uses-ref-of file target) expected-ref)))
