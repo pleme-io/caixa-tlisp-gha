@@ -1,4 +1,15 @@
 name: auto-release
+
+# `inputs.*` does not exist on a push event, so the previous shim's
+# `bump-type: ${{ inputs.bump-type || 'patch' }}` was an invalid expression and
+# every push died at startup_failure before a single job ran. Verified
+# 2026-07-29 on this repo's first push, and it is why the other caixa-tlisp-*
+# repos carrying the same shim have never released either.
+#
+# github.event.inputs IS valid on any event (null when not a dispatch), so a
+# manual bump-type override still works while push falls through to the
+# reusable workflow's own default.
+
 on:
   push:
     branches:
@@ -9,9 +20,10 @@ on:
         description: "patch | minor | major"
         required: false
         default: patch
+
 jobs:
   release:
     uses: pleme-io/substrate/.github/workflows/auto-release.yml@main
     with:
-      bump-type: "${{ inputs.bump-type || 'patch' }}"
+      bump-type: "${{ github.event.inputs.bump-type || 'patch' }}"
     secrets: inherit
