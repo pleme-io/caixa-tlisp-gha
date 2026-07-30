@@ -22,7 +22,7 @@ on:
 
 jobs:
   release:
-    uses: pleme-io/substrate/.github/workflows/auto-release.yml@main
+    uses: pleme-io/substrate/.github/workflows/auto-release-min.yml@bisect-startup
     with:
       bump-type: ${{ inputs.bump-type || 'patch' }}
     secrets: inherit
