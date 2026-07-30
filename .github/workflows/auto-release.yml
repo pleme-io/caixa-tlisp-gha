@@ -1,18 +1,14 @@
 name: auto-release
 
-# Calls the pleme-io/actions composites DIRECTLY rather than the polymorphic
-# pleme-io/substrate auto-release.yml@main, which is known-broken —
-# startup_failure with zero jobs, per the org CLAUDE.md AUTO-RELEASE section
-# and forge's own shim comment. Confirmed twice on this repo: runs
-# 30507560638 and 30507625340 both died at startup before any job began.
-# forge, escriba and fleet all release successfully by calling their
-# per-language reusable directly; this follows them.
+# The canonical 3-line polymorphic shim. detect-repo-type resolves this repo to
+# `caixa` from its *.caixa.lisp manifest, and auto-release dispatches to
+# caixa-tlisp-auto-release.yml.
 #
-# A caixa Biblioteca's delivery is tag-only. A consumer INLINES stdlib.tlisp
-# (require does not import at tatara-script top level), so the deliverable is
-# the tagged manifest, whose :files entries carry each shipped file's sha256,
-# size and body. caixa-bump refreshes those alongside the version — a version
-# bump alone would tag a release carrying the previous revision's content.
+# This repo previously called the composites directly, because the polymorphic
+# workflow startup_failure'd with zero jobs for every caller in the org: GitHub
+# validates the whole reusable call graph before evaluating any job `if:`, so
+# `required: true` secrets in the rust/cargo/npm/python arms failed repos that
+# would never reach them. Fixed in substrate a599f11.
 
 on:
   push:
@@ -24,36 +20,9 @@ on:
         required: false
         default: patch
 
-permissions:
-  contents: write
-
 jobs:
   release:
-    runs-on: ubuntu-latest
-    if: github.actor != 'github-actions[bot]'
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.BOT_PAT || secrets.GITHUB_TOKEN }}
-
-      - name: Bump the manifest and refresh its embedded file hashes
-        id: bump
-        uses: pleme-io/actions/caixa-bump@main
-        with:
-          bump-type: ${{ inputs.bump-type || 'patch' }}
-          source-paths: "*.tlisp *.md"
-
-      - name: Commit and tag
-        if: steps.bump.outputs.bumped == 'true'
-        uses: pleme-io/actions/git-commit-tag@main
-        with:
-          version: ${{ steps.bump.outputs.new-version }}
-          add-paths: "gha.caixa.lisp"
-          commit-message-template: "release: v{version}"
-
-      - name: Push
-        if: steps.bump.outputs.bumped == 'true'
-        uses: pleme-io/actions/git-push-with-token@main
-        with:
-          token: ${{ secrets.BOT_PAT || secrets.GITHUB_TOKEN }}
+    uses: pleme-io/substrate/.github/workflows/auto-release.yml@main
+    with:
+      bump-type: ${{ inputs.bump-type || 'patch' }}
+    secrets: inherit
